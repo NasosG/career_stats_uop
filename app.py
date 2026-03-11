@@ -7,6 +7,7 @@ from pathlib import Path
 
 DATA_FILE = Path("monthly_metrics.csv")
 WEBINARS_FILE = Path("webinars.csv")
+PAGES_FILE = Path("page_performance.csv")
 
 
 def normalize_month(s) -> str:
@@ -441,8 +442,7 @@ def main():
 
     st.sidebar.write("Τρέχων μήνας report:", month_label_gr(month))
 
-    # Two tabs: metrics & webinars
-    tab_metrics, tab_webinars = st.tabs(["📊 Monthly report", "🎓 Webinars"])
+    tab_metrics, tab_pages, tab_webinars = st.tabs(["📊 Monthly report", "📄 Απόδοση Περιεχομένου", "🎓 Webinars"])
 
     with tab_metrics:
         # Main layout
@@ -533,6 +533,93 @@ def main():
                 title="Impressions ανά συσκευή και μήνα",
             )
             st.plotly_chart(fig_dev, use_container_width=True)
+
+    with tab_pages:
+        st.subheader("Απόδοση Περιεχομένου – Top 5 Σελίδες")
+        st.write("Οι πιο δημοφιλείς σελίδες του website βάσει προβολών και συμμετοχής επισκεπτών.")
+
+        uploaded_pages = st.file_uploader(
+            "Άνοιγμα CSV με page performance (προαιρετικό)",
+            type=["csv"],
+            key="pages_uploader",
+        )
+
+        if uploaded_pages is not None:
+            pages_df = pd.read_csv(uploaded_pages)
+        elif PAGES_FILE.exists():
+            pages_df = pd.read_csv(PAGES_FILE, dtype={"month": str})
+        else:
+            pages_df = pd.DataFrame()
+
+        if not pages_df.empty:
+            pages_df = _normalize_columns(pages_df)
+            if "month" in pages_df.columns:
+                pages_df = pages_df.assign(month=pages_df["month"].astype(str).str.strip())
+                month_pages = pages_df[pages_df["month"] == month]
+            else:
+                month_pages = pd.DataFrame()
+
+            if not month_pages.empty:
+                st.markdown(f"### {month_label_gr(month)}")
+
+                display_cols = [c for c in ["page_title", "views", "sessions", "engagement_rate", "avg_engagement_duration"] if c in month_pages.columns]
+                display_df = month_pages[display_cols].reset_index(drop=True)
+                display_df.index = display_df.index + 1
+                col_rename = {
+                    "page_title": "Σελίδα",
+                    "views": "Views",
+                    "sessions": "Sessions",
+                    "engagement_rate": "Engagement %",
+                    "avg_engagement_duration": "Avg Duration",
+                }
+                display_df = display_df.rename(columns=col_rename)
+                st.dataframe(display_df, use_container_width=True)
+
+                if "views" in month_pages.columns:
+                    fig_pages = px.bar(
+                        month_pages,
+                        x="page_title",
+                        y="views",
+                        title=f"Views ανά σελίδα – {month_label_gr(month)}",
+                        labels={"page_title": "Σελίδα", "views": "Views"},
+                        color="page_title",
+                    )
+                    fig_pages.update_layout(showlegend=False, xaxis_tickangle=-30)
+                    st.plotly_chart(fig_pages, use_container_width=True)
+
+                if "engagement_rate" in month_pages.columns:
+                    fig_engage = px.bar(
+                        month_pages,
+                        x="page_title",
+                        y="engagement_rate",
+                        title=f"Engagement Rate (%) ανά σελίδα – {month_label_gr(month)}",
+                        labels={"page_title": "Σελίδα", "engagement_rate": "Engagement %"},
+                        color="page_title",
+                    )
+                    fig_engage.update_layout(showlegend=False, xaxis_tickangle=-30)
+                    st.plotly_chart(fig_engage, use_container_width=True)
+
+            else:
+                st.info(f"Δεν υπάρχουν δεδομένα σελίδων για **{month_label_gr(month)}**.")
+
+            all_months_pages = sorted(pages_df["month"].unique().tolist()) if "month" in pages_df.columns else []
+            if len(all_months_pages) > 1:
+                st.markdown("---")
+                st.markdown("### Σύγκριση Views ανά μήνα (Top σελίδες)")
+                top_titles = pages_df.groupby("page_title")["views"].sum().nlargest(5).index.tolist()
+                compare_df = pages_df[pages_df["page_title"].isin(top_titles)]
+                fig_compare = px.bar(
+                    compare_df,
+                    x="month",
+                    y="views",
+                    color="page_title",
+                    barmode="group",
+                    title="Views ανά μήνα – Top σελίδες",
+                    labels={"page_title": "Σελίδα", "views": "Views", "month": "Μήνας"},
+                )
+                st.plotly_chart(fig_compare, use_container_width=True)
+        else:
+            st.info("Δεν βρέθηκαν δεδομένα. Βάλε αρχείο `page_performance.csv` στο project ή κάνε upload.")
 
     with tab_webinars:
         st.subheader("Webinars")

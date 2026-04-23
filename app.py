@@ -648,13 +648,17 @@ def main():
 
             if not month_webinars.empty:
                 st.markdown(f"Webinars για **{month_label_gr(month)}**")
-                st.dataframe(month_webinars, use_container_width=True)
+                mw_display = month_webinars.reset_index(drop=True)
+                mw_display.index = mw_display.index + 1
+                st.dataframe(mw_display, use_container_width=True)
             else:
                 st.markdown(f"Δεν υπάρχουν webinars καταχωρημένα για **{month_label_gr(month)}**.")
 
             st.markdown("---")
             st.markdown("**Όλα τα webinars:**")
-            st.dataframe(webinars_df, use_container_width=True)
+            all_display = webinars_df.reset_index(drop=True)
+            all_display.index = all_display.index + 1
+            st.dataframe(all_display, use_container_width=True)
 
 
 if __name__ == "__main__":

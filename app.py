@@ -573,13 +573,10 @@ def main():
                     "ctr",
                     "position",
                 ]
-                display_cols = [
-                    c
-                    for c in all_page_cols
-                    if c in month_pages.columns and (c == "page_title" or month_pages[c].notna().any())
-                ]
+                display_cols = [c for c in all_page_cols if c in month_pages.columns]
                 display_df = month_pages[display_cols].reset_index(drop=True)
                 display_df.index = display_df.index + 1
+                display_df = display_df.astype(object).where(display_df.notna(), "Μη διαθέσιμο")
                 col_rename = {
                     "page_title": "Σελίδα",
                     "views": "Views",
